@@ -1,24 +1,32 @@
-kernel_source_files := $(shell find src/ -name *.rs)
-kernel_object_files := $(patsubst src/%.rs, build/kernel/%.o, $(kernel_source_files))
+default: build
 
-x86_64_asm_source_files := $(shell find src/x86_64 -name *.asm)
-x86_64_asm_object_files := $(patsubst src/x86_64/%.asm, build/x86_64/%.o, $(x86_64_asm_source_files))
+build: target/vos.bin
 
-x86_64_object_files := $(x86_64_asm_object_files)
+.PHONY: default build run clean
 
-$(x86_64_asm_object_files): build/x86_64/%.o : src/x86_64/%.asm
-	mkdir -p $(dir $@) && \
-	nasm -f elf64 $(patsubst build/x86_64/%.o, src/x86_64/%.asm, $@) -o $@
+asm_files := $(shell find src/asm -name *.asm)
+asm_object_files := $(patsubst src/asm/%.asm, target/%.o, $(asm_files))
 
-$(kernel_object_files): build/kernel/%.o : src/%.rs
-	mkdir -p $(dir $@) && \
-	cargo rustc --lib -- --emit=obj -o $@
-#	rustc -C target-feature=+crt-static --crate-type=staticlib --emit=obj src/main.rs -o $@
-#	rustc -C target-feature=+crt-static --crate-type=staticlib --emit=obj $(patsubst build/kernel/%.o, src/%.rs, $@) -o $@
+$(asm_object_files): target/%.o : src/asm/%.asm
+	mkdir -p target
+	nasm -f elf64 $(patsubst target/%.o, src/asm/%.asm, $@) -o $@
 
-.PHONY: build-x86_64
-build-x86_64: $(kernel_object_files) $(x86_64_object_files)
-	mkdir -p dist/x86_64 && \
-	x86_64-elf-ld -n -o dist/x86_64/kernel.bin -T arch/x86_64/linker.ld $(kernel_object_files) $(x86_64_object_files) && \
-	cp dist/x86_64/kernel.bin arch/x86_64/iso/boot/kernel.bin && \
-	grub-mkrescue /usr/lib/grub/i386-pc -o dist/x86_64/kernel.iso arch/x86_64/iso
+target/vos.bin: $(asm_object_files) src/asm/linker.ld cargo
+	ld -n -o target/vos.bin -T src/asm/linker.ld $(asm_object_files) target/x86_64-target-vos/release/libvos.a
+
+target/vos.iso: target/vos.bin src/asm/grub.cfg
+	mkdir -p target/isofiles/boot/grub
+	cp src/asm/grub.cfg target/isofiles/boot/grub
+	cp target/vos.bin target/isofiles/boot/
+	grub-mkrescue -o target/vos.iso target/isofiles
+
+run: target/vos.iso
+	qemu-system-x86_64 -cdrom target/vos.iso
+
+clean:
+	cargo clean
+
+iso: target/vos.iso
+
+cargo:
+	cargo build --release

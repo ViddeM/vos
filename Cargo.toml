@@ -18,4 +18,3 @@ panic = "abort"
 
 [dependencies]
 libc = {version = "0.2.14", default-features = false }
-bootloader = "0.9.8"
