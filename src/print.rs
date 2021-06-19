@@ -2,7 +2,7 @@ use core::ptr::{read_volatile, write_volatile};
 
 const VIDEO_MEMORY_ADDRESS: u32 = 0xb8000;
 const NUM_COLS: u8 = 80;
-const NUM_ROWS: u8 = 25;
+const NUM_ROWS: u8 = 26;
 
 pub enum Color {
     Black,
@@ -107,23 +107,23 @@ impl From<u16> for Char {
     }
 }
 
-impl From<Char> for u16 {
-    fn from(char: Char) -> Self {
+impl From<&Char> for u16 {
+    fn from(char: &Char) -> Self {
         return ((char.color as u16) << 8) | char.character as u16;
     }
 }
 
-fn write_char(char: Char, row: u8, col: u8) {
-    let mut lower = false;
+fn write_char(char: &Char, row: u8, col: u8) {
+    let mut lower = true;
     let offset = col % 2;
 
     if offset == 1 {
-        lower = true;
+        lower = false;
     }
 
     let aligned_col = col - offset;
 
-    let address = (VIDEO_MEMORY_ADDRESS + (aligned_col * 2 + (NUM_COLS * row)) as u32) as *mut u32;
+    let address = (VIDEO_MEMORY_ADDRESS + (aligned_col as u32 * 2 + (NUM_COLS as u32 * row as u32))) as *mut u32;
     let prev_data: u32 = unsafe { read_volatile::<u32>(address) };
     let char_data: u32 = u16::from(char) as u32;
     let new_data = if lower {
@@ -141,10 +141,10 @@ pub fn print_str(a: &str) {
         let col = (i % NUM_COLS as usize) as u8;
         let row = ((i - col as usize) / NUM_COLS as usize) as u8;
         write_char(
-            Char {
+            &Char {
                 character: chars[i],
                 color: CharColor {
-                    bg_color: Color::Black,
+                    bg_color: Color::Blue,
                     fg_color: Color::White,
                 }
                 .into(),
@@ -156,16 +156,16 @@ pub fn print_str(a: &str) {
 }
 
 fn clear_row(row: u8) {
+    let char =
+        Char {
+            character: b' ',
+            color: CharColor {
+                fg_color: Color::Blue,
+                bg_color: Color::White,
+            }.into(),
+        };
     for col in 0..NUM_COLS {
-        write_char(
-            Char {
-                character: b'-',
-                color: CharColor {
-                    fg_color: Color::Blue,
-                    bg_color: Color::White,
-                }
-                .into(),
-            },
+        write_char(&char,
             row,
             col,
         )

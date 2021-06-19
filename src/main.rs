@@ -23,7 +23,8 @@ pub extern "C" fn kernel_main() -> ! {
     // unsafe { write_volatile(0xb8000 as *mut u32, 0x16971697) }
 
     clear_screen();
-    print_str("Welcome to the 64-bit VOS kernel!");
+    // print_str("Welcome to the 64-bit VOS kernel!");
+    print_str("0004 008 012 016 020 024 028 032 036 040 044 048 052 056 060 064 068 072 076 080 084");
     loop {}
 }
 
